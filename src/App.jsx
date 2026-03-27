@@ -3,11 +3,17 @@ import WorldMap from './components/WorldMap';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { getIt, getApiCountryName } from './utils/countriesIT';
+import { useAuth } from './contexts/AuthContext';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from './firebase';
 import it from 'date-fns/locale/it';
 
 registerLocale('it', it);
 
 function App() {
+  const { currentUser, loginWithGoogle, logout } = useAuth();
+  const [isCloudLoaded, setIsCloudLoaded] = useState(false);
+
   const [countriesData, setCountriesData] = useState(() => {
     const saved = localStorage.getItem('countriesData');
     if (saved) {
@@ -84,10 +90,48 @@ function App() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Cloud Sync INIT! Carica i dati appena l'utente effettua login
+  useEffect(() => {
+    if (currentUser) {
+      const loadCloudData = async () => {
+        try {
+          const docRef = doc(db, 'users', currentUser.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+             const cloudData = docSnap.data();
+             if (cloudData.countriesData) setCountriesData(cloudData.countriesData);
+             if (cloudData.globalAirportsLogs) setGlobalAirports(cloudData.globalAirportsLogs);
+          } else {
+             await setDoc(docRef, {
+               countriesData,
+               globalAirportsLogs: globalAirports,
+               lastUpdated: new Date().toISOString()
+             }, { merge: true });
+          }
+        } catch (error) {
+           console.error("Firebase sync error:", error);
+        } finally {
+           setIsCloudLoaded(true);
+        }
+      };
+      loadCloudData();
+    } else {
+      setIsCloudLoaded(true);
+    }
+  }, [currentUser]);
+
   useEffect(() => {
     localStorage.setItem('countriesData', JSON.stringify(countriesData));
     localStorage.setItem('globalAirportsLogs', JSON.stringify(globalAirports));
-  }, [countriesData, globalAirports]);
+
+    if (currentUser && isCloudLoaded) {
+       setDoc(doc(db, 'users', currentUser.uid), {
+         countriesData: countriesData,
+         globalAirportsLogs: globalAirports,
+         lastUpdated: new Date().toISOString()
+       }, { merge: true }).catch(err => console.error(err));
+    }
+  }, [countriesData, globalAirports, isCloudLoaded, currentUser]);
 
   // Caricamento Dizioanrio Universal Aeroporti SOLO se l'utente va nella tab Flight Log
   useEffect(() => {
@@ -318,6 +362,19 @@ function App() {
         </h1>
         
         <div className="flex items-center gap-3 sm:gap-4">
+            {currentUser ? (
+               <div className="flex items-center gap-2 border border-slate-700 bg-slate-800/50 pl-2 pr-2 py-1.5 rounded-2xl shadow-inner max-w-xs transition-all animate-in fade-in zoom-in-95">
+                 {currentUser.photoURL && <img src={currentUser.photoURL} alt="User" className="w-6 h-6 rounded-full shadow-md" title={currentUser.email} />}
+                 <span className="text-slate-200 font-bold text-xs truncate max-w-[80px] hidden sm:block">{currentUser.displayName?.split(' ')[0]}</span>
+                 <button onClick={logout} className="text-[10px] font-black px-2 py-1 rounded-lg bg-slate-950/80 text-rose-400 hover:bg-rose-500 hover:text-white border border-rose-900/30 transition-all shadow-md ml-1">Esci</button>
+               </div>
+            ) : (
+               <button onClick={loginWithGoogle} className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-slate-700 bg-white text-slate-900 font-black hover:bg-slate-200 transition-all shadow-lg text-[10px] sm:text-xs">
+                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                 Cloud Sync
+               </button>
+            )}
+            
           <div className="flex gap-2">
              <span className="flex flex-col items-center bg-emerald-500/10 backdrop-blur-sm px-4 py-1.5 rounded-2xl border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
                 <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Paesi Visit.</span>
