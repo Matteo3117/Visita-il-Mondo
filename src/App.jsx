@@ -623,7 +623,7 @@ function App() {
                                 <div key={airportObj.name} className="bg-slate-800/80 backdrop-blur-md border border-slate-700 p-5 rounded-3xl shadow-lg flex flex-col relative group transition-all hover:bg-slate-700/80 hover:-translate-y-1 hover:border-sky-500/30">
                                    <div className="flex justify-between items-start mb-3 gap-2">
                                       <h4 className="text-lg font-black text-sky-400 leading-tight">{airportObj.name}</h4>
-                                      <button onClick={() => removeGlobalAirport(airportObj.name)} className="text-slate-500 hover:text-red-400 bg-slate-900/50 w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0 transition">✕</button>
+                                      <button onClick={() => removeAirport(airportObj.name)} className="text-slate-500 hover:text-red-400 bg-slate-900/50 w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0 transition">✕</button>
                                    </div>
                                    {dateStr !== 'Aggiungi Date +' ? (
                                       <div className="inline-flex items-center gap-2 mt-auto bg-slate-900/60 w-max px-3 py-1.5 rounded-lg border border-slate-700">
